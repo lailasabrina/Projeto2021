@@ -15,9 +15,13 @@
   }
 }:
 with obelisk;
-project ./. ({ ... }: {
+project ./. ({ pkgs, hackGet, ... }: {
   android.applicationId = "systems.obsidian.obelisk.examples.minimal";
   android.displayName = "Obelisk Minimal Example";
   ios.bundleIdentifier = "systems.obsidian.obelisk.examples.minimal";
   ios.bundleName = "Obelisk Minimal Example";
+
+  packages = {
+    psql = hackGet ./dep/psql;
+  };
 })

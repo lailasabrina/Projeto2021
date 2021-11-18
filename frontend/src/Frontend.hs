@@ -21,6 +21,39 @@ import Reflex.Dom.Core
 import Common.Api
 import Common.Route
 
+-------------------------------- BACKEND --------------------------------
+
+getPath :: T.Text
+getPath = renderBackendRoute checFullREnc $ BackendRoute_Cliente :/ ()
+
+nomeRequest :: T.Text -> XhrRequest T.Text
+nomeRequest s = postJson getPath (Cliente s)
+
+pagReq :: ( DomBuilder t m
+          , Prerender js t m
+          ) => m (Event t T.Text)
+pagReq = do
+    inpnome <- inputElement def
+    (submitBtn,_) <- el' "button" (text "Inserir")
+    let click = domEvent Click submitBtn
+    let nm = tag (current $ _inputElement_value inpnome) click
+    st <- prerender
+        (pure never)
+        (fmap decodeXhrResponse <$> performRequestAsync (nomeRequest <$> nm))
+    return (fromMaybe "" <$> switchDyn st) 
+    
+paginaInsere :: ( DomBuilder t m
+       , PostBuild t m
+       , MonadHold t m
+       , Prerender js t m
+       ) => m ()
+paginaInsere = do
+    el "h1" $ text "Inserção de informações no Banco de Dados"
+    st <- pagReq 
+    tx <- holdDyn "" st
+    el "div" (dynText tx)
+----------------------------------------------------------------------
+
 data Pagina = Pagina0 | Pagina1 | Pagina2 | Pagina3 | Pagina4 | Pagina5
    
 clickLi :: DomBuilder t m => Pagina -> T.Text -> m (Event t Pagina)
@@ -34,7 +67,7 @@ menuLi = do
         p1 <- clickLi Pagina1 "Lista"
         p2 <- clickLi Pagina2 "Palavra reversa"
         p3 <- clickLi Pagina3 "Somar"
-        p4 <- clickLi Pagina4 "Página 4"
+        p4 <- clickLi Pagina4 "Inserção BD"
         p5 <- clickLi Pagina5 "Página 5"
         return (leftmost [p1,p2,p3,p4,p5])
     holdDyn Pagina0 evs    
@@ -46,7 +79,7 @@ currPag p =
          Pagina1 -> lista
          Pagina2 -> bttnEvt
          Pagina3 -> sumEvt
-         Pagina4 -> el "h1" $ text "Esta é a página 4"
+         Pagina4 -> paginaInsere
          Pagina5 -> el "h1" $ text "Esta é a página 5"
          
 mainPag :: (DomBuilder t m, MonadHold t m, PostBuild t m, Prerender js0 t m) => m ()
@@ -131,10 +164,12 @@ lista = do
 frontend :: Frontend (R FrontendRoute)
 frontend = Frontend
   { _frontend_head = do
-      el "title" $ text "Erro 404 - Página infelizmente encontrada"
+      el "title" $ text "Página de testes"
       elAttr "link" ("href" =: static @"main.css" <> "type" =: "text/css" <> "rel" =: "stylesheet") blank
   , _frontend_body = do
       mainPag
+
+      el "h1" $ text $ "Meme para alegrar a vida" 
 
       el "p" $ text $ "Minha cara quando eu ver minha nota em Haskell: "
           
