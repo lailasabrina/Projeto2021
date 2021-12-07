@@ -22,3 +22,10 @@ data Filme = Filme {
     filmeGenero :: Text,
     filmeAno :: Int
 } deriving (Generic, ToJSON, FromJSON, ToRow, FromRow, Eq, Show)
+
+data Serie = Serie {
+    serieId :: Int,
+    serieNome :: Text,
+    serieGenero :: Text,
+    serieTemp :: Int
+} deriving (Generic, ToJSON, FromJSON, ToRow, FromRow, Eq, Show)

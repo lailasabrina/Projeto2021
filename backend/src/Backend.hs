@@ -25,6 +25,9 @@ migrate = "CREATE TABLE IF NOT EXISTS cliente (id SERIAL PRIMARY KEY, nome TEXT 
  
 migrateFilm :: Query
 migrateFilm = "CREATE TABLE IF NOT EXISTS filme (id SERIAL PRIMARY KEY, nome TEXT NOT NULL, genero TEXT NOT NULL, ano DATE NOT NULL)"
+
+migrateSerie :: Query
+migrateSerie = "CREATE TABLE IF NOT EXISTS serie (id SERIAL PRIMARY KEY, nome TEXT NOT NULL, genero TEXT NOT NULL, temp INTEGER NOT NULL)"
  
 
 backend :: Backend BackendRoute FrontendRoute
@@ -78,6 +81,53 @@ backend = Backend
                              execute dbcon 
                                      "INSERT INTO filme(nome,genero,ano) VALUES (?,?,?)" 
                                      (filmeNome film, filmeGenero film, filmeAno film)
+                         modifyResponse $ setResponseStatus 200 "OK"    
+                     _ -> modifyResponse $ setResponseStatus 500 "Erro"
+            BackendRoute_EditarS :/ pid -> method POST $ do
+                ser <- A.decode <$> readRequestBody 2000
+                case ser of
+                    Just serie -> do
+                        liftIO $ do
+                            execute_ dbcon migrateSerie
+                            execute dbcon "UPDATE serie SET nome = ?, genero = ?, temp = ? WHERE id = ?" 
+                                       (serieNome serie, serieGenero serie, serieTemp serie,pid)
+                        modifyResponse $ setResponseStatus 200 "OK"
+                    Nothing -> modifyResponse $ setResponseStatus 500 "ERRO"
+            BackendRoute_ListarS :/ () -> method GET $ do
+                res :: [Serie] <- liftIO $ do
+                        execute_ dbcon migrateSerie
+                        query_ dbcon "SELECT * from serie"
+                modifyResponse $ setResponseStatus 200 "OK"
+                writeLazyText (encodeToLazyText res)
+            BackendRoute_ApagarS :/ pid -> method POST $ do 
+                res :: [Serie] <- liftIO $ do
+                        execute_ dbcon migrateSerie
+                        query dbcon "SELECT * from serie where id=?" (Only (pid :: Int))
+                if res /= [] then do
+                    liftIO $ do
+                        execute_ dbcon migrateSerie
+                        execute dbcon "DELETE from serie where id=?" (Only (pid :: Int))
+                    modifyResponse $ setResponseStatus 200 "OK"   
+                else
+                    modifyResponse $ setResponseStatus 404 "NOT FOUND"  
+            BackendRoute_BuscarS :/ pid -> method GET $ do 
+                res :: [Serie] <- liftIO $ do
+                        execute_ dbcon migrateSerie
+                        query dbcon "SELECT * from serie where id=?" (Only (pid :: Int))
+                if res /= [] then do
+                        modifyResponse $ setResponseStatus 200 "OK"   
+                        writeLazyText (encodeToLazyText (Prelude.head res))
+                else 
+                        modifyResponse $ setResponseStatus 404 "NOT FOUND"  
+            BackendRoute_Serie :/ () -> method POST $ do
+                serie <- A.decode <$> readRequestBody 2000
+                case serie of
+                     Just ser -> do
+                         liftIO $ do
+                             execute_ dbcon migrateSerie
+                             execute dbcon 
+                                     "INSERT INTO serie(nome,genero,temp) VALUES (?,?,?)" 
+                                     (serieNome ser, serieGenero ser, serieTemp ser)
                          modifyResponse $ setResponseStatus 200 "OK"    
                      _ -> modifyResponse $ setResponseStatus 500 "Erro"
             BackendRoute_Cliente :/ () -> do
