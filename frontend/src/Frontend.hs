@@ -43,21 +43,26 @@ reqFilm :: ( DomBuilder t m
            ) => m ()
 reqFilm = do
     el "h1" (text "Adicionar Filmes")
-    el "p" (text "")
-    el "p" (text "Nome: ")
-    nome <- inputElement def
-    el "p" (text "Genêro: ")
-    genero <- inputElement def
-    el "p" (text "Ano de Lançamento: ")
-    ano <- dateInput
-    let film = fmap (\((a,n),g) -> Filme 0 n g a) (zipDyn (zipDyn ano (_inputElement_value nome))(_inputElement_value genero))
-    (submitBtn,_) <- elAttr' "button" ("class"=:"btn btn-primary") (text "Inserir")
-    let click = domEvent Click submitBtn
-    let filmEvt = tag (current film) click
-    _ :: Dynamic t (Event t (Maybe T.Text)) <- prerender
-        (pure never)
-        (fmap decodeXhrResponse <$> performRequestAsync (sendRequest (BackendRoute_Filme :/ ()) <$> filmEvt))
-    return () 
+    elAttr "div" ("class" =: "container") $ do
+        elAttr "div" ("class" =: "row") $ do
+            elAttr "div" ("class" =: "col-md-8 order-md-1") $ do
+                el "p" (text "")
+                elAttr "div" ("class" =: "mb-3") $ do
+                    elAttr "p" ("class" =: "form-label") (text "Nome: ")
+                    nome <- inputElement def 
+                    elAttr "p" ("class" =: "form-label")(text "Genêro: ")
+                    genero <- inputElement def
+                    elAttr "p" ("class" =: "form-label")(text "Ano de Lançamento: ")
+                    ano <- dateInput
+                    let film = fmap (\((a,n),g) -> Filme 0 n g a) (zipDyn (zipDyn ano (_inputElement_value nome))(_inputElement_value genero))
+                    elAttr "div" ("class" =: "mb-3") $ do
+                        (submitBtn,_) <- elAttr' "button" ("class"=:"btn btn-dark") (text "Inserir")
+                        let click = domEvent Click submitBtn
+                        let filmEvt = tag (current film) click
+                        _ :: Dynamic t (Event t (Maybe T.Text)) <- prerender
+                            (pure never)
+                            (fmap decodeXhrResponse <$> performRequestAsync (sendRequest (BackendRoute_Filme :/ ()) <$> filmEvt))
+                        return () 
 
 req :: ( DomBuilder t m
        , Prerender js t m
@@ -81,9 +86,9 @@ tabRegistro pr = do
         el "td" (dynText $ fmap (T.pack . show . filmeNome) pr)
         el "td" (dynText $ fmap (T.pack . show . filmeGenero) pr)
         el "td" (dynText $ fmap (T.pack . show . filmeAno) pr)  
-        evt <- fmap (fmap (const Perfil)) (button "perfil")
-        evt2 <- fmap (fmap (const Editar)) (button "editar")
-        evt3 <- fmap (fmap (const Apagar)) (button "apagar")
+        evt <- elAttr "td" ("class" =: "get") $ fmap (fmap (const Perfil)) (button "perfil")
+        evt2 <- elAttr "td" ("class" =: "edit") $ fmap (fmap (const Editar)) (button "editar")
+        evt3 <- elAttr "td" ("class" =: "delete") $ fmap (fmap (const Apagar)) (button "apagar")
         return (attachPromptlyDynWith (flip ($)) (fmap filmeId pr) (leftmost [evt,evt2,evt3]))
 
 reqTabela :: ( DomBuilder t m
@@ -92,31 +97,34 @@ reqTabela :: ( DomBuilder t m
             , MonadFix m
             , PostBuild t m) => Workflow t m T.Text
 reqTabela = Workflow $ do
-    btn <- button "Listar"
-    films :: Dynamic t (Event t (Maybe [Filme])) <- prerender
-        (pure never)
-        (fmap decodeXhrResponse <$> performRequestAsync (const getListReq <$> btn))
-    evt <- return (fmap (fromMaybe []) $ switchDyn films)
-    dynP <- foldDyn (++) [] evt
-    tb <- el "table" $ do
-        el "thead" $ do
-            el "tr" $ do
-                el "th" (text "Id")
-                el "th" (text "Nome")
-                el "th" (text "Gênero")
-                el "th" (text "Ano de Lançamento")
-                el "th" (text "")
-                el "th" (text "")
-                el "th" (text "")
-        
-        el "tbody" $ do
-             simpleList dynP tabRegistro
-    tb' <- return $ switchDyn $ fmap leftmost tb
-    return ("Listagem", escolherPag <$> tb')
-    where
-        escolherPag (Perfil pid) = pagPerfil pid
-        escolherPag (Editar pid) = editarPerfil pid
-        escolherPag (Apagar pid) = delPerfil pid
+    el "h1" (text "Listar filmes")
+    elAttr "div" ("class" =: "container") $ do
+                btn <- button "Abrir lista"
+                films :: Dynamic t (Event t (Maybe [Filme])) <- prerender
+                    (pure never)
+                    (fmap decodeXhrResponse <$> performRequestAsync (const getListReq <$> btn))
+                evt <- return (fmap (fromMaybe []) $ switchDyn films)
+                dynP <- foldDyn (++) [] evt
+                tb <- elAttr "table" ("class" =: "table")$ do
+                    el "thead" $ do
+                        el "tr" $ do
+                            elAttr "th" ("scope" =: "col")(text "Id")
+                            elAttr "th" ("scope" =: "col")(text "Nome")
+                            elAttr "th" ("scope" =: "col")(text "Gênero")
+                            elAttr "th" ("scope" =: "col")(text "Ano de Lançamento")
+                            elAttr "th" ("scope" =: "col")(text "")
+                            elAttr "th" ("scope" =: "col")(text "")
+                            elAttr "th" ("scope" =: "col")(text "")
+                            
+                    
+                    el "tbody" $ do
+                        simpleList dynP tabRegistro
+                tb' <- return $ switchDyn $ fmap leftmost tb
+                return ("", escolherPag <$> tb')
+                where
+                    escolherPag (Perfil pid) = pagPerfil pid
+                    escolherPag (Editar pid) = editarPerfil pid
+                    escolherPag (Apagar pid) = delPerfil pid
       
 pagPerfil :: ( DomBuilder t m
             , Prerender js t m
@@ -124,18 +132,20 @@ pagPerfil :: ( DomBuilder t m
             , MonadFix m
             , PostBuild t m) => Int -> Workflow t m T.Text
 pagPerfil pid = Workflow $ do
-    btn <- button "mostrar"
-    film :: Dynamic t (Event t (Maybe Filme)) <- prerender
-        (pure never)
-        (fmap decodeXhrResponse <$> performRequestAsync (const (getFilmReq pid) <$> btn))
-    mdyn <- holdDyn Nothing (switchDyn film)
-    dynP <- return ((fromMaybe (Filme 0 "" "" 0)) <$> mdyn)
-    el "div" $ do
-        el "div" (dynText $ fmap filmeNome dynP)
-        el "div" (dynText $ fmap (T.pack . show . filmeGenero) dynP)
-        el "div" (dynText $ fmap (T.pack . show . filmeAno) dynP)
-    ret <- button "voltar"
-    return ("Perfil: " <> (T.pack $ show pid), reqTabela <$ ret) 
+    el "h1" (text "Perfil")
+    elAttr "div" ("class" =: "container") $ do
+        btn <- button "mostrar"
+        film :: Dynamic t (Event t (Maybe Filme)) <- prerender
+            (pure never)
+            (fmap decodeXhrResponse <$> performRequestAsync (const (getFilmReq pid) <$> btn))
+        mdyn <- holdDyn Nothing (switchDyn film)
+        dynP <- return ((fromMaybe (Filme 0 "" "" 0)) <$> mdyn)
+        elAttr "div" ("class" =: "card-body") $ do
+            el "div" (dynText $ fmap filmeNome dynP)
+            el "div" (dynText $ fmap (T.pack . show . filmeGenero) dynP)
+            el "div" (dynText $ fmap (T.pack . show . filmeAno) dynP)
+        ret <- button "voltar"
+        return ("Id: " <> (T.pack $ show pid), reqTabela <$ ret) 
 
 delPerfil :: ( DomBuilder t m
             , Prerender js t m
@@ -143,10 +153,11 @@ delPerfil :: ( DomBuilder t m
             , MonadFix m
             , PostBuild t m) => Int -> Workflow t m T.Text
 delPerfil  pid = Workflow $ do
-    el "div" $ do 
-        el "h1" (text "Apagar filme")
+    el "h1" (text "Apagar filme")
+    elAttr "div" ("class" =: "container") $ do
+    el "div" $ do
         el "p" (text "Deseja realmente apagar esse filme e todos seus dados?")        
-    (btnDel,film) <- elAttr' "button" ("class"=: "btn btn-success") (text "Deletar")
+    (btnDel,film) <- elAttr' "button" ("class"=: "btn btn-danger") (text "Deletar")
 
     let delEvt = domEvent Click btnDel
     film :: Dynamic t (Event t (Maybe T.Text)) <- prerender
@@ -174,33 +185,39 @@ editarPerfil :: ( DomBuilder t m
             , MonadFix m
             , PostBuild t m) => Int -> Workflow t m T.Text
 editarPerfil pid = Workflow $ do
-    btn <- button "mostrar"
-    film :: Dynamic t (Event t (Maybe Filme)) <- prerender
-        (pure never)
-        (fmap decodeXhrResponse <$> performRequestAsync
-           (const (getFilmReq pid) <$> btn))
-    mdyn <- return (switchDyn film)
-    dynE <- return ((fromMaybe (Filme 0 "" "" 0)) <$> mdyn)
-    el "p" (text "Nome: ")
-    nome <- inputElement $ 
-         def & inputElementConfig_setValue .~ (fmap filmeNome dynE)
-    el "p" (text "Gênero: ")
-    genero <- inputElement $ 
-         def & inputElementConfig_setValue .~ (fmap filmeGenero dynE)
-    el "p" (text "Ano de Lançamento: ")
-    ano <- numberInputDyn (fmap filmeAno dynE)
-    
-    let film = fmap (\((a,n),g) -> Filme 0 n g a) (zipDyn (zipDyn ano (_inputElement_value nome))(_inputElement_value genero))
-        
-    submitBtn <- button "Editar"
-    let filmEvt = tag (current film) submitBtn
-    _ :: Dynamic t (Event t (Maybe T.Text)) <- prerender
-        (pure never)
-        (fmap decodeXhrResponse <$> 
-            performRequestAsync (sendRequest (BackendRoute_Editar :/ pid) 
-            <$> filmEvt)) 
-    return ("Perfil: " <> (T.pack $ show pid), reqTabela <$ submitBtn)  
-                 
+    el "h1" (text "Editar filme")
+    elAttr "div" ("class" =: "container") $ do
+        btn <- button "mostrar"
+        film :: Dynamic t (Event t (Maybe Filme)) <- prerender
+            (pure never)
+            (fmap decodeXhrResponse <$> performRequestAsync
+            (const (getFilmReq pid) <$> btn))
+        mdyn <- return (switchDyn film)
+        dynE <- return ((fromMaybe (Filme 0 "" "" 0)) <$> mdyn)
+        elAttr "div" ("class" =: "row") $ do
+            elAttr "div" ("class" =: "col-md-8 order-md-1") $ do
+                el "p" (text "")
+                elAttr "div" ("class" =: "mb-3") $ do
+                    elAttr "p" ("class" =: "form-label") (text "Nome: ")
+                    nome <- inputElement $ 
+                        def & inputElementConfig_setValue .~ (fmap filmeNome dynE)
+                    elAttr "p" ("class" =: "form-label") (text "Gênero: ")
+                    genero <- inputElement $ 
+                        def & inputElementConfig_setValue .~ (fmap filmeGenero dynE)
+                    elAttr "p" ("class" =: "form-label") (text "Ano de lançamento: ")
+                    ano <- numberInputDyn (fmap filmeAno dynE)
+                    
+                    let film = fmap (\((a,n),g) -> Filme 0 n g a) (zipDyn (zipDyn ano (_inputElement_value nome))(_inputElement_value genero))
+                    el "p" (text "")    
+                    submitBtn <- button "editar"
+                    let filmEvt = tag (current film) submitBtn
+                    _ :: Dynamic t (Event t (Maybe T.Text)) <- prerender
+                        (pure never)
+                        (fmap decodeXhrResponse <$> 
+                            performRequestAsync (sendRequest (BackendRoute_Editar :/ pid) 
+                            <$> filmEvt)) 
+                    return ("Perfil: " <> (T.pack $ show pid), reqTabela <$ submitBtn)  
+                            
 reqLista :: ( DomBuilder t m
             , Prerender js t m
             , MonadHold t m
@@ -221,7 +238,7 @@ clickLi p t = do
 menuLi :: (DomBuilder t m, PostBuild t m, MonadHold t m) => m (Dynamic t Pagina)
 menuLi = do
     evs <- elAttr "ul" ("class" =: "menu") $ do
-        p1 <- clickLi Pagina1 "Home"
+        p1 <- clickLi Pagina1 "Grupo"
         p2 <- clickLi Pagina2 "Inserir Filmes"
         p3 <- clickLi Pagina3 "Listar Filmes"
         p4 <- clickLi Pagina4 "Sobre"
@@ -328,29 +345,28 @@ lista = do
 
 home :: (DomBuilder t m, PostBuild t m) => m ()
 home = do
-    el "h1" $ text "Bem - Vindo (a)"
+    el "h1" $ text "Alunos envolvidos nesse projeto"
     el "p" $ blank
     el "div" $ do 
-        el "p" (text "Trabalho desenvolvido para a matéria de Tópicos Especiais em Sistemas para a Internet III, do curso de Sistemas para Internet, objetivando a obtenção de nota para compor a média.")
-        el "p" $ blank
-        el "p" $ blank
-        el "p" (text "Alunos: ")
-        el "p" (text "Danilo dos Santos Gomes")
-        el "p" (text "Laila Sabrina Alves Silva de Lima")
-        el "p" (text "Marcos Vinicius Sousa do Rosario")
-        el "p" $ blank
-        el "p" $ blank
-        el "p" (text "Mais informações na página sobre.")
+        el "p" (text "")
+        el "p" (text "")
+        el "p" (text "")
+        elAttr "p" ("class" =: "name")(text "Danilo dos Santos Gomes")
+        elAttr "p" ("class" =: "name")(text "Laila Sabrina Alves Silva de Lima")
+        elAttr "p" ("class" =: "name")(text "Marcos Vinicius Sousa do Rosario")
+        elAttr "p" ("class" =: "name")(text "")
+        el "p" (text "")
+        elAttr "p" ("class" =: "espace")(text "Mais informações na página sobre.")
 
 sobre :: (DomBuilder t m, PostBuild t m) => m ()
 sobre = do
     el "h1" $ text "Sobre o Projeto"
     el "p" $ blank
     el "div" $ do 
-        el "p" (text "O projeto tem como principal objetivo explorar as noções de desenvolvimento e as habilidades dos alunos explorando de forma prática o que foi aprendido em sala de aula. ")
+        elAttr "p" ("class" =: "sobre")(text "O projeto tem como principal objetivo explorar as noções de desenvolvimento e as habilidades dos alunos explorando de forma prática o que foi aprendido em sala de aula. ")
         el "p" $ blank
         el "p" $ blank
-        el "p" (text "A ideia desse projeto é ser um crude simples para demonstração de como funciona o desenvolvimento em Haskel, para isto foi pensando em um tema que inclua as rotas para adição, edição, listagem de dados no banco de dados. A temática então gira em torno de filmes e seus elementos principais (nome, genêro e ano de lançamento).")
+        elAttr "p" ("class" =: "sobre")(text "A ideia desse projeto é ser um crude simples para demonstração de como funciona o desenvolvimento em Haskel, para isto foi pensando em um tema que inclua as rotas para adição, edição, listagem de dados no banco de dados. A temática então gira em torno de filmes e seus elementos principais (nome, genêro e ano de lançamento).")
 
 
 frontend :: Frontend (R FrontendRoute)
@@ -366,8 +382,9 @@ frontend = Frontend
   , _frontend_body = do
       mainPag
 
-      --el "h1" $ text $ "Meme para alegrar a vida" 
-      --el "p" $ text $ "Minha cara quando eu ver minha nota em Haskell: "
-      --elAttr "img" ("src" =: static @"meme.jpg") blank
+      elAttr "div" ("class"=:"footer") $ do 
+        el "p" $ text $ "Bem - Vindo(a)!" 
+        el "p" $ text $ "Trabalho desenvolvido para a matéria de Tópicos Especiais em Sistemas para a Internet III, do curso de Sistemas para Internet, objetivando a obtenção de nota para compor a média."
+        elAttr "img" ("src" =: static @"meme.jpg") blank
 
   }
