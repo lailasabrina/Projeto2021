@@ -32,6 +32,7 @@ img{
 	color: white;
 	display: block;
 	padding: 20px 30px;
+	font-size: 14px;
 }
 
 .menu li:hover{
@@ -87,6 +88,11 @@ input {
     text-align: center;
 	font-size: 15px;
 	width: 100%;
+}
+
+.center {
+	text-align: center;
+	line-height: 3px;
 }
 
 .name {

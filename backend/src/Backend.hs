@@ -28,6 +28,9 @@ migrateFilm = "CREATE TABLE IF NOT EXISTS filme (id SERIAL PRIMARY KEY, nome TEX
 
 migrateSerie :: Query
 migrateSerie = "CREATE TABLE IF NOT EXISTS serie (id SERIAL PRIMARY KEY, nome TEXT NOT NULL, genero TEXT NOT NULL, temp INTEGER NOT NULL)"
+
+migrateNovela :: Query
+migrateNovela = "CREATE TABLE IF NOT EXISTS novelas (id SERIAL PRIMARY KEY, nome TEXT NOT NULL, emissora TEXT NOT NULL, ano INTEGER NOT NULL)"
  
 
 backend :: Backend BackendRoute FrontendRoute
@@ -128,6 +131,53 @@ backend = Backend
                              execute dbcon 
                                      "INSERT INTO serie(nome,genero,temp) VALUES (?,?,?)" 
                                      (serieNome ser, serieGenero ser, serieTemp ser)
+                         modifyResponse $ setResponseStatus 200 "OK"    
+                     _ -> modifyResponse $ setResponseStatus 500 "Erro"
+            BackendRoute_EditarN :/ pid -> method POST $ do
+                novel <- A.decode <$> readRequestBody 2000
+                case novel of
+                    Just novela -> do
+                        liftIO $ do
+                            execute_ dbcon migrateNovela
+                            execute dbcon "UPDATE novelas SET nome = ?, emissora = ?, ano = ? WHERE id = ?" 
+                                       (novelaNome novela, novelaEmissora novela, novelaAno novela, pid)
+                        modifyResponse $ setResponseStatus 200 "OK"
+                    Nothing -> modifyResponse $ setResponseStatus 500 "ERRO"
+            BackendRoute_ListarN :/ () -> method GET $ do
+                res :: [Novela] <- liftIO $ do
+                        execute_ dbcon migrateNovela
+                        query_ dbcon "SELECT * from novelas"
+                modifyResponse $ setResponseStatus 200 "OK"
+                writeLazyText (encodeToLazyText res)
+            BackendRoute_ApagarN :/ pid -> method POST $ do 
+                res :: [Novela] <- liftIO $ do
+                        execute_ dbcon migrateNovela
+                        query dbcon "SELECT * from novelas where id=?" (Only (pid :: Int))
+                if res /= [] then do
+                    liftIO $ do
+                        execute_ dbcon migrateNovela
+                        execute dbcon "DELETE from novelas where id=?" (Only (pid :: Int))
+                    modifyResponse $ setResponseStatus 200 "OK"   
+                else
+                    modifyResponse $ setResponseStatus 404 "NOT FOUND"  
+            BackendRoute_BuscarN :/ pid -> method GET $ do 
+                res :: [Novela] <- liftIO $ do
+                        execute_ dbcon migrateNovela
+                        query dbcon "SELECT * from novelas where id=?" (Only (pid :: Int))
+                if res /= [] then do
+                        modifyResponse $ setResponseStatus 200 "OK"   
+                        writeLazyText (encodeToLazyText (Prelude.head res))
+                else 
+                        modifyResponse $ setResponseStatus 404 "NOT FOUND"  
+            BackendRoute_Novela :/ () -> method POST $ do
+                novela <- A.decode <$> readRequestBody 2000
+                case novela of
+                     Just novel -> do
+                         liftIO $ do
+                             execute_ dbcon migrateNovela
+                             execute dbcon 
+                                     "INSERT INTO novelas(nome,emissora,ano) VALUES (?,?,?)" 
+                                     (novelaNome novel, novelaEmissora novel, novelaAno novel)
                          modifyResponse $ setResponseStatus 200 "OK"    
                      _ -> modifyResponse $ setResponseStatus 500 "Erro"
             BackendRoute_Cliente :/ () -> do

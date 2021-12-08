@@ -29,3 +29,10 @@ data Serie = Serie {
     serieGenero :: Text,
     serieTemp :: Int
 } deriving (Generic, ToJSON, FromJSON, ToRow, FromRow, Eq, Show)
+
+data Novela = Novela {
+    novelaId :: Int,
+    novelaNome :: Text,
+    novelaEmissora :: Text,
+    novelaAno :: Int
+} deriving (Generic, ToJSON, FromJSON, ToRow, FromRow, Eq, Show)

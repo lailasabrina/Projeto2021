@@ -34,24 +34,36 @@ getListReq = xhrRequest "GET" (getPath (BackendRoute_Listar :/ ())) def
 getFilmReq :: Int -> XhrRequest ()
 getFilmReq pid = xhrRequest "GET" (getPath (BackendRoute_Buscar :/ pid)) def
 
+deleteReq :: Int -> XhrRequest ()
+deleteReq pid = xhrRequest "DELETE" (getPath (BackendRoute_Apagar :/ pid)) def
+
 getListSReq :: XhrRequest ()
 getListSReq = xhrRequest "GET" (getPath (BackendRoute_ListarS :/ ())) def
 
 getSerieReq :: Int -> XhrRequest ()
 getSerieReq pid = xhrRequest "GET" (getPath (BackendRoute_BuscarS :/ pid)) def
 
-deleteReq :: Int -> XhrRequest ()
-deleteReq pid = xhrRequest "DELETE" (getPath (BackendRoute_Apagar :/ pid)) def
-
 deleteSReq :: Int -> XhrRequest ()
 deleteSReq pid = xhrRequest "DELETE" (getPath (BackendRoute_ApagarS :/ pid)) def
 
+getListNReq :: XhrRequest ()
+getListNReq = xhrRequest "GET" (getPath (BackendRoute_ListarN :/ ())) def
+
+getNovelReq :: Int -> XhrRequest ()
+getNovelReq pid = xhrRequest "GET" (getPath (BackendRoute_BuscarN :/ pid)) def
+
+deleteNReq :: Int -> XhrRequest ()
+deleteNReq pid = xhrRequest "DELETE" (getPath (BackendRoute_ApagarN :/ pid)) def
+
+data Acao = Perfil Int | Editar Int | Apagar Int | PerfilS Int | EditarS Int | ApagarS Int | PerfilN Int | EditarN Int | ApagarN Int
+
+--- Backhend Filmes ---
 
 reqFilm :: ( DomBuilder t m
            , Prerender js t m
            ) => m ()
 reqFilm = do
-    el "h1" (text "Adicionar Filmes")
+    el "h1" (text "Adicionar filmes")
     elAttr "div" ("class" =: "container") $ do
         elAttr "div" ("class" =: "row") $ do
             elAttr "div" ("class" =: "col-md-8 order-md-1") $ do
@@ -71,47 +83,7 @@ reqFilm = do
                         _ :: Dynamic t (Event t (Maybe T.Text)) <- prerender
                             (pure never)
                             (fmap decodeXhrResponse <$> performRequestAsync (sendRequest (BackendRoute_Filme :/ ()) <$> filmEvt))
-                        return () 
-reqSerie :: ( DomBuilder t m
-           , Prerender js t m
-           ) => m ()
-reqSerie = do
-    el "h1" (text "Adicionar Séries")
-    elAttr "div" ("class" =: "container") $ do
-        elAttr "div" ("class" =: "row") $ do
-            elAttr "div" ("class" =: "col-md-8 order-md-1") $ do
-                el "p" (text "")
-                elAttr "div" ("class" =: "mb-3") $ do
-                    elAttr "p" ("class" =: "form-label") (text "Nome: ")
-                    nome <- inputElement def 
-                    elAttr "p" ("class" =: "form-label")(text "Gênero: ")
-                    genero <- inputElement def
-                    elAttr "p" ("class" =: "form-label")(text "Temporada(s): ")
-                    temp <- numberInput
-                    let ser = fmap (\((t,n),g) -> Serie 0 n g t) (zipDyn (zipDyn temp (_inputElement_value nome))(_inputElement_value genero))
-                    elAttr "div" ("class" =: "mb-3") $ do
-                        (submitBtn,_) <- elAttr' "button" ("class"=:"btn btn-dark") (text "Inserir")
-                        let click = domEvent Click submitBtn
-                        let serEvt = tag (current ser) click
-                        _ :: Dynamic t (Event t (Maybe T.Text)) <- prerender
-                            (pure never)
-                            (fmap decodeXhrResponse <$> performRequestAsync (sendRequest (BackendRoute_Serie :/ ()) <$> serEvt))
                         return ()
-
-req :: ( DomBuilder t m
-       , Prerender js t m
-       ) => m ()
-req = do
-    inputEl <- inputElement def
-    (submitBtn,_) <- el' "button" (text "Inserir")
-    let click = domEvent Click submitBtn
-    let nm = tag (current $ _inputElement_value inputEl) click
-    _ :: Dynamic t (Event t (Maybe T.Text)) <- prerender
-        (pure never)
-        (fmap decodeXhrResponse <$> performRequestAsync (sendRequest (BackendRoute_Cliente :/ ()) <$> nm))
-    return () 
-
-data Acao = Perfil Int | Editar Int | Apagar Int | PerfilS Int | EditarS Int | ApagarS Int
 
 tabRegistro :: (PostBuild t m, DomBuilder t m) => Dynamic t Filme-> m (Event t Acao)
 tabRegistro pr = do 
@@ -201,17 +173,6 @@ delPerfil  pid = Workflow $ do
             <$> delEvt))    
 
     return ("" <> "", reqTabela <$ delEvt)
-    
-
-numberInputDyn :: (DomBuilder t m, Num a, Read a, Show a) =>
-               Event t a -> m (Dynamic t a)
-numberInputDyn p = do
-      val <- return (fmap (T.pack . show) p)
-      n <- inputElement $ def
-        & inputElementConfig_setValue .~ val
-      return $ fmap (fromMaybe 0 . readMaybe . T.unpack) 
-                 (_inputElement_value n)
-
 
 editarPerfil :: ( DomBuilder t m
             , Prerender js t m
@@ -251,6 +212,43 @@ editarPerfil pid = Workflow $ do
                             performRequestAsync (sendRequest (BackendRoute_Editar :/ pid) 
                             <$> filmEvt)) 
                     return ("Perfil: " <> (T.pack $ show pid), reqTabela <$ submitBtn) 
+
+reqLista :: ( DomBuilder t m
+            , Prerender js t m
+            , MonadHold t m
+            , MonadFix m
+            , PostBuild t m) => m ()
+reqLista = do
+    r <- workflow reqTabela
+    el "div" (dynText r)
+
+--- Backhend Séries ---
+
+reqSerie :: ( DomBuilder t m
+           , Prerender js t m
+           ) => m ()
+reqSerie = do
+    el "h1" (text "Adicionar séries")
+    elAttr "div" ("class" =: "container") $ do
+        elAttr "div" ("class" =: "row") $ do
+            elAttr "div" ("class" =: "col-md-8 order-md-1") $ do
+                el "p" (text "")
+                elAttr "div" ("class" =: "mb-3") $ do
+                    elAttr "p" ("class" =: "form-label") (text "Nome: ")
+                    nome <- inputElement def 
+                    elAttr "p" ("class" =: "form-label")(text "Gênero: ")
+                    genero <- inputElement def
+                    elAttr "p" ("class" =: "form-label")(text "Temporada(s): ")
+                    temp <- numberInput
+                    let ser = fmap (\((t,n),g) -> Serie 0 n g t) (zipDyn (zipDyn temp (_inputElement_value nome))(_inputElement_value genero))
+                    elAttr "div" ("class" =: "mb-3") $ do
+                        (submitBtn,_) <- elAttr' "button" ("class"=:"btn btn-dark") (text "Inserir")
+                        let click = domEvent Click submitBtn
+                        let serEvt = tag (current ser) click
+                        _ :: Dynamic t (Event t (Maybe T.Text)) <- prerender
+                            (pure never)
+                            (fmap decodeXhrResponse <$> performRequestAsync (sendRequest (BackendRoute_Serie :/ ()) <$> serEvt))
+                        return ()
 
 tabRegistroS :: (PostBuild t m, DomBuilder t m) => Dynamic t Serie-> m (Event t Acao)
 tabRegistroS pr = do 
@@ -293,11 +291,11 @@ reqTabelaS = Workflow $ do
                     el "tbody" $ do
                         simpleList dynP tabRegistroS
                 tb' <- return $ switchDyn $ fmap leftmost tb
-                return ("", escolherPag <$> tb')
+                return ("", escolherPagS <$> tb')
                 where
-                    escolherPag (PerfilS pid) = pagPerfilS pid
-                    escolherPag (EditarS pid) = editarPerfilS pid
-                    escolherPag (ApagarS pid) = delPerfilS pid
+                    escolherPagS (PerfilS pid) = pagPerfilS pid
+                    escolherPagS (EditarS pid) = editarPerfilS pid
+                    escolherPagS (ApagarS pid) = delPerfilS pid
       
 pagPerfilS :: ( DomBuilder t m
             , Prerender js t m
@@ -379,15 +377,6 @@ editarPerfilS pid = Workflow $ do
                             performRequestAsync (sendRequest (BackendRoute_EditarS :/ pid) 
                             <$> serEvt)) 
                     return ("Perfil: " <> (T.pack $ show pid), reqTabelaS <$ submitBtn) 
-                            
-reqLista :: ( DomBuilder t m
-            , Prerender js t m
-            , MonadHold t m
-            , MonadFix m
-            , PostBuild t m) => m ()
-reqLista = do
-    r <- workflow reqTabela
-    el "div" (dynText r)
 
 reqListaS :: ( DomBuilder t m
             , Prerender js t m
@@ -397,9 +386,189 @@ reqListaS :: ( DomBuilder t m
 reqListaS = do
     r <- workflow reqTabelaS
     el "div" (dynText r)
+
+--- Backhend Novelas ---
+
+reqNovel :: ( DomBuilder t m
+           , Prerender js t m
+           ) => m ()
+reqNovel = do
+    el "h1" (text "Adicionar novelas")
+    elAttr "div" ("class" =: "container") $ do
+        elAttr "div" ("class" =: "row") $ do
+            elAttr "div" ("class" =: "col-md-8 order-md-1") $ do
+                el "p" (text "")
+                elAttr "div" ("class" =: "mb-3") $ do
+                    elAttr "p" ("class" =: "form-label") (text "Nome: ")
+                    nome <- inputElement def 
+                    elAttr "p" ("class" =: "form-label")(text "Emissora: ")
+                    emissora <- inputElement def
+                    elAttr "p" ("class" =: "form-label")(text "Ano da primeira exibição: ")
+                    ano <- dateInput
+                    let novel = fmap (\((a,n),e) -> Novela 0 n e a) (zipDyn (zipDyn ano (_inputElement_value nome))(_inputElement_value emissora))
+                    elAttr "div" ("class" =: "mb-3") $ do
+                        (submitBtn,_) <- elAttr' "button" ("class"=:"btn btn-dark") (text "Inserir")
+                        let click = domEvent Click submitBtn
+                        let filmEvt = tag (current novel) click
+                        _ :: Dynamic t (Event t (Maybe T.Text)) <- prerender
+                            (pure never)
+                            (fmap decodeXhrResponse <$> performRequestAsync (sendRequest (BackendRoute_Novela :/ ()) <$> filmEvt))
+                        return ()
+
+tabRegistroN :: (PostBuild t m, DomBuilder t m) => Dynamic t Novela-> m (Event t Acao)
+tabRegistroN pr = do 
+    el "tr" $ do
+        el "td" (dynText $ fmap (T.pack . show . novelaId) pr)
+        el "td" (dynText $ fmap (T.pack . show . novelaNome) pr)
+        el "td" (dynText $ fmap (T.pack . show . novelaEmissora) pr)
+        el "td" (dynText $ fmap (T.pack . show . novelaAno) pr)  
+        evt <- elAttr "td" ("class" =: "get") $ fmap (fmap (const PerfilN)) (button "perfil")
+        evt2 <- elAttr "td" ("class" =: "edit") $ fmap (fmap (const EditarN)) (button "editar")
+        evt3 <- elAttr "td" ("class" =: "delete") $ fmap (fmap (const ApagarN)) (button "apagar")
+        return (attachPromptlyDynWith (flip ($)) (fmap novelaId pr) (leftmost [evt,evt2,evt3]))
+
+reqTabelaN :: ( DomBuilder t m
+            , Prerender js t m
+            , MonadHold t m
+            , MonadFix m
+            , PostBuild t m) => Workflow t m T.Text
+reqTabelaN = Workflow $ do
+    el "h1" (text "Listar novelas")
+    elAttr "div" ("class" =: "container") $ do
+                btn <- button "Abrir lista"
+                novelas :: Dynamic t (Event t (Maybe [Novela])) <- prerender
+                    (pure never)
+                    (fmap decodeXhrResponse <$> performRequestAsync (const getListNReq <$> btn))
+                evt <- return (fmap (fromMaybe []) $ switchDyn novelas)
+                dynP <- foldDyn (++) [] evt
+                tb <- elAttr "table" ("class" =: "table")$ do
+                    el "thead" $ do
+                        el "tr" $ do
+                            elAttr "th" ("scope" =: "col")(text "Id")
+                            elAttr "th" ("scope" =: "col")(text "Nome")
+                            elAttr "th" ("scope" =: "col")(text "Emissora")
+                            elAttr "th" ("scope" =: "col")(text "Ano da primeira exibição")
+                            elAttr "th" ("scope" =: "col")(text "")
+                            elAttr "th" ("scope" =: "col")(text "")
+                            elAttr "th" ("scope" =: "col")(text "")
+                            
+                    
+                    el "tbody" $ do
+                        simpleList dynP tabRegistroN
+                tb' <- return $ switchDyn $ fmap leftmost tb
+                return ("", escolherPagN <$> tb')
+                where
+                    escolherPagN (PerfilN pid) = pagPerfilN pid
+                    escolherPagN (EditarN pid) = editarPerfilN pid
+                    escolherPagN (ApagarN pid) = delPerfilN pid
+      
+pagPerfilN :: ( DomBuilder t m
+            , Prerender js t m
+            , MonadHold t m
+            , MonadFix m
+            , PostBuild t m) => Int -> Workflow t m T.Text
+pagPerfilN pid = Workflow $ do
+    el "h1" (text "Perfil")
+    elAttr "div" ("class" =: "container") $ do
+        btn <- button "mostrar"
+        novel :: Dynamic t (Event t (Maybe Novela)) <- prerender
+            (pure never)
+            (fmap decodeXhrResponse <$> performRequestAsync (const (getNovelReq pid) <$> btn))
+        mdyn <- holdDyn Nothing (switchDyn novel)
+        dynP <- return ((fromMaybe (Novela 0 "" "" 0)) <$> mdyn)
+        elAttr "div" ("class" =: "card-body") $ do
+            el "div" (dynText $ fmap novelaNome dynP)
+            el "div" (dynText $ fmap (T.pack . show . novelaEmissora) dynP)
+            el "div" (dynText $ fmap (T.pack . show . novelaAno) dynP)
+        ret <- button "voltar"
+        return ("Id: " <> (T.pack $ show pid), reqTabelaN <$ ret) 
+
+delPerfilN :: ( DomBuilder t m
+            , Prerender js t m
+            , MonadHold t m
+            , MonadFix m
+            , PostBuild t m) => Int -> Workflow t m T.Text
+delPerfilN  pid = Workflow $ do
+    el "h1" (text "Apagar novela")
+    elAttr "div" ("class" =: "container") $ do
+    el "div" $ do
+        el "p" (text "Deseja realmente apagar essa novela e todos seus dados?")        
+    (btnDel,novel) <- elAttr' "button" ("class"=: "btn btn-danger") (text "Deletar")
+
+    let delEvt = domEvent Click btnDel
+    novel :: Dynamic t (Event t (Maybe T.Text)) <- prerender
+        (pure never)
+        (fmap decodeXhrResponse <$> 
+            performRequestAsync (sendRequest (BackendRoute_ApagarN :/ pid) 
+            <$> delEvt))    
+
+    return ("" <> "", reqTabelaN <$ delEvt) 
+
+editarPerfilN :: ( DomBuilder t m
+            , Prerender js t m
+            , MonadHold t m
+            , MonadFix m
+            , PostBuild t m) => Int -> Workflow t m T.Text
+editarPerfilN pid = Workflow $ do
+    el "h1" (text "Editar novela")
+    elAttr "div" ("class" =: "container") $ do
+        btn <- button "mostrar"
+        novel :: Dynamic t (Event t (Maybe Novela)) <- prerender
+            (pure never)
+            (fmap decodeXhrResponse <$> performRequestAsync
+            (const (getNovelReq pid) <$> btn))
+        mdyn <- return (switchDyn novel)
+        dynE <- return ((fromMaybe (Novela 0 "" "" 0)) <$> mdyn)
+        elAttr "div" ("class" =: "row") $ do
+            elAttr "div" ("class" =: "col-md-8 order-md-1") $ do
+                el "p" (text "")
+                elAttr "div" ("class" =: "mb-3") $ do
+                    elAttr "p" ("class" =: "form-label") (text "Nome: ")
+                    nome <- inputElement $ 
+                        def & inputElementConfig_setValue .~ (fmap novelaNome dynE)
+                    elAttr "p" ("class" =: "form-label") (text "Emissora: ")
+                    emissora <- inputElement $ 
+                        def & inputElementConfig_setValue .~ (fmap novelaEmissora dynE)
+                    elAttr "p" ("class" =: "form-label") (text "Ano da primeira exibição: ")
+                    ano <- numberInputDyn (fmap novelaAno dynE)
+                    
+                    let novel = fmap (\((a,n),e) -> Serie 0 n e a) (zipDyn (zipDyn ano (_inputElement_value nome))(_inputElement_value emissora))
+                    el "p" (text "")    
+                    submitBtn <- button "editar"
+                    let novelEvt = tag (current novel) submitBtn
+                    _ :: Dynamic t (Event t (Maybe T.Text)) <- prerender
+                        (pure never)
+                        (fmap decodeXhrResponse <$> 
+                            performRequestAsync (sendRequest (BackendRoute_EditarN :/ pid) 
+                            <$> novelEvt)) 
+                    return ("Perfil: " <> (T.pack $ show pid), reqTabelaN <$ submitBtn) 
+
+reqListaN :: ( DomBuilder t m
+            , Prerender js t m
+            , MonadHold t m
+            , MonadFix m
+            , PostBuild t m) => m ()
+reqListaN = do
+    r <- workflow reqTabelaN
+    el "div" (dynText r)
+
+-----------------------------------
+
+req :: ( DomBuilder t m
+       , Prerender js t m
+       ) => m ()
+req = do
+    inputEl <- inputElement def
+    (submitBtn,_) <- el' "button" (text "Inserir")
+    let click = domEvent Click submitBtn
+    let nm = tag (current $ _inputElement_value inputEl) click
+    _ :: Dynamic t (Event t (Maybe T.Text)) <- prerender
+        (pure never)
+        (fmap decodeXhrResponse <$> performRequestAsync (sendRequest (BackendRoute_Cliente :/ ()) <$> nm))
+    return () 
 ----------------------------------------------------------------------
 
-data Pagina = Pagina0 | Pagina1 | Pagina2 | Pagina3 | Pagina4 | Pagina5 | Pagina6
+data Pagina = Pagina0 | Pagina1 | Pagina2 | Pagina3 | Pagina4 | Pagina5 | Pagina6 | Pagina7 | Pagina8
    
 clickLi :: (DomBuilder t m, PostBuild t m, MonadHold t m) => Pagina -> T.Text -> m (Event t Pagina)
 clickLi p t = do
@@ -409,25 +578,29 @@ clickLi p t = do
 menuLi :: (DomBuilder t m, PostBuild t m, MonadHold t m) => m (Dynamic t Pagina)
 menuLi = do
     evs <- elAttr "ul" ("class" =: "menu") $ do
-        p1 <- clickLi Pagina1 "Grupo"
+        p1 <- clickLi Pagina1 "Home"
         p2 <- clickLi Pagina2 "Inserir Filmes"
         p3 <- clickLi Pagina3 "Listar Filmes"
         p4 <- clickLi Pagina4 "Inserir Séries"
         p5 <- clickLi Pagina5 "Listar Séries"
-        p6 <- clickLi Pagina6 "Sobre"
-        return (leftmost [p1,p2,p3,p4,p5,p6])
+        p6 <- clickLi Pagina6 "Inserir Novelas"
+        p7 <- clickLi Pagina7 "Listar Novelas"
+        p8 <- clickLi Pagina8 "Sobre"
+        return (leftmost [p1,p2,p3,p4,p5,p6,p7,p8])
     holdDyn Pagina0 evs    
     
 currPag :: (DomBuilder t m, PostBuild t m, MonadHold t m, MonadFix m, Prerender js t m) => Pagina -> m ()
 currPag p = 
     case p of
-         Pagina0 -> blank
+         Pagina0 -> home
          Pagina1 -> home
          Pagina2 -> reqFilm
          Pagina3 -> reqLista
          Pagina4 -> reqSerie
          Pagina5 -> reqListaS
-         Pagina6 -> sobre
+         Pagina6 -> reqNovel
+         Pagina7 -> reqListaN
+         Pagina8 -> sobre
          
 mainPag :: (DomBuilder t m, PostBuild t m, MonadHold t m, MonadFix m, Prerender js t m) => m ()
 mainPag = do
@@ -449,6 +622,15 @@ dateInput = do
         & inputElementConfig_initialValue .~ "1890"
         & inputElementConfig_elementConfig 
         . elementConfig_initialAttributes .~ ("type" =: "number")
+      return $ fmap (fromMaybe 0 . readMaybe . T.unpack) 
+                 (_inputElement_value n)
+
+numberInputDyn :: (DomBuilder t m, Num a, Read a, Show a) =>
+               Event t a -> m (Dynamic t a)
+numberInputDyn p = do
+      val <- return (fmap (T.pack . show) p)
+      n <- inputElement $ def
+        & inputElementConfig_setValue .~ val
       return $ fmap (fromMaybe 0 . readMaybe . T.unpack) 
                  (_inputElement_value n)
 
@@ -535,13 +717,13 @@ home = do
 
 sobre :: (DomBuilder t m, PostBuild t m) => m ()
 sobre = do
-    el "h1" $ text "Sobre o Projeto"
+    el "h1" $ text "Sobre o projeto"
     el "p" $ blank
     el "div" $ do 
         elAttr "p" ("class" =: "sobre")(text "O projeto tem como principal objetivo explorar as noções de desenvolvimento e as habilidades dos alunos explorando de forma prática o que foi aprendido em sala de aula. ")
         el "p" $ blank
         el "p" $ blank
-        elAttr "p" ("class" =: "sobre")(text "A ideia desse projeto é ser um crude simples para demonstração de como funciona o desenvolvimento em Haskel, para isto foi pensando em um tema que inclua as rotas para adição, edição, listagem de dados no banco de dados. A temática então gira em torno de filmes e séries, e seus elementos principais (nome, gênero, temporadas e ano de lançamento).")
+        elAttr "p" ("class" =: "sobre")(text "A ideia desse projeto é ser um crude simples para demonstração de como funciona o desenvolvimento em Haskel, para isto foi pensando em um tema que inclua as rotas para adição, edição, listagem de dados no banco de dados. A temática então gira em torno de filmes, séries e novelas, e seus elementos principais (nome, gênero, temporadas, emissora e ano de lançamento ou de exibição).")
 
 
 frontend :: Frontend (R FrontendRoute)
@@ -558,8 +740,8 @@ frontend = Frontend
       mainPag
 
       elAttr "div" ("class"=:"footer") $ do 
-        el "p" $ text $ "Bem - Vindo(a)!" 
-        el "p" $ text $ "Trabalho desenvolvido para a matéria de Tópicos Especiais em Sistemas para a Internet III, do curso de Sistemas para Internet, objetivando a obtenção de nota para compor a média."
+        elAttr "p" ("class"=:"center") $ text $ "Bem - Vindo(a)!" 
+        elAttr "p" ("class"=:"center") $ text $ "Trabalho desenvolvido para a matéria de Tópicos Especiais em Sistemas para a Internet III, do curso de Sistemas para Internet, objetivando a obtenção de nota para compor a média."
         elAttr "img" ("src" =: static @"meme.jpg") blank
 
   }
