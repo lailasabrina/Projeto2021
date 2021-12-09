@@ -57,7 +57,7 @@ deleteNReq pid = xhrRequest "DELETE" (getPath (BackendRoute_ApagarN :/ pid)) def
 
 data Acao = Perfil Int | Editar Int | Apagar Int | PerfilS Int | EditarS Int | ApagarS Int | PerfilN Int | EditarN Int | ApagarN Int
 
---- Backhend Filmes ---
+--- Backend Filmes ---
 
 reqFilm :: ( DomBuilder t m
            , Prerender js t m
@@ -222,7 +222,7 @@ reqLista = do
     r <- workflow reqTabela
     el "div" (dynText r)
 
---- Backhend Séries ---
+--- Backend Séries ---
 
 reqSerie :: ( DomBuilder t m
            , Prerender js t m
@@ -387,7 +387,7 @@ reqListaS = do
     r <- workflow reqTabelaS
     el "div" (dynText r)
 
---- Backhend Novelas ---
+--- Backend Novelas ---
 
 reqNovel :: ( DomBuilder t m
            , Prerender js t m
@@ -532,7 +532,7 @@ editarPerfilN pid = Workflow $ do
                     elAttr "p" ("class" =: "form-label") (text "Ano da primeira exibição: ")
                     ano <- numberInputDyn (fmap novelaAno dynE)
                     
-                    let novel = fmap (\((a,n),e) -> Serie 0 n e a) (zipDyn (zipDyn ano (_inputElement_value nome))(_inputElement_value emissora))
+                    let novel = fmap (\((a,n),e) -> Novela 0 n e a) (zipDyn (zipDyn ano (_inputElement_value nome))(_inputElement_value emissora))
                     el "p" (text "")    
                     submitBtn <- button "editar"
                     let novelEvt = tag (current novel) submitBtn
